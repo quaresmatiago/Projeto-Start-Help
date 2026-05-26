@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Help</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; display: flex; justify-content: center; background-color: #f5f5f5; }
+        .celular { width: 360px; height: 640px; background: white; border: 12px solid #222; border-radius: 28px; position: relative; overflow: hidden; box-shadow: 0 12px 24px rgba(0,0,0,0.15); margin-top: 30px; }
+        .tela { display: none; height: 100%; width: 100%; box-sizing: border-box; overflow-y: auto; }
+        .ativa { display: flex; flex-direction: column; }
+        
+        /* SPLASH SCREEN */
+        #splash { background-color: #D9383A; color: white; justify-content: center; align-items: center; }
+        .coracao { font-size: 90px; margin: 15px 0; animation: bater 1.2s infinite; }
+        @keyframes bater { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        
+        /* HOME SCREEN */
+        #home { padding: 24px 20px; background-color: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .avatar { width: 45px; height: 45px; border-radius: 50%; background: #e0e0e0; border: 2px solid #D9383A; }
+        .grid-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+        .card-menu { border: 1px solid #f0f0f0; padding: 18px 10px; border-radius: 14px; text-align: center; font-weight: bold; font-size: 14px; background: #fafafa; cursor: pointer; transition: 0.2s; color: #333; }
+        .card-menu.sos-btn { background-color: #D9383A; color: white; border: none; }
+        .lembrete-header { display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 12px; }
+        .lembrete-box { background-color: #FFF5F5; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #FFE3E3; }
+        
+        /* SOS SCREEN */
+        #sos { padding: 24px 20px; text-align: center; background-color: #fff; }
+        .btn-emergencia { width: 200px; height: 200px; border-radius: 50%; background-color: #D9383A; color: white; border: 10px solid #FFF5F5; font-size: 32px; font-weight: bold; cursor: pointer; margin: 40px auto; box-shadow: 0 6px 20px rgba(217,56,58,0.3); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; }
+        .btn-emergencia small { font-size: 10px; font-weight: normal; letter-spacing: 0.5px; }
+        .info-box { background-color: #FFF5F5; border-radius: 16px; padding: 16px; text-align: left; font-size: 13px; border: 1px solid #FFE3E3; margin-top: auto; }
+        .info-box li { margin-bottom: 6px; color: #555; }
+        .voltar { margin-top: 15px; background: none; border: 1px solid #ddd; padding: 8px; border-radius: 8px; cursor: pointer; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="celular">
+    <div id="splash" class="tela ativa">
+        <h1 style="letter-spacing: 3px; font-size: 28px; margin: 0;">START</h1>
+        <div class="coracao">❤️</div>
+        <h1 style="letter-spacing: 3px; font-size: 28px; margin: 0;">HELP</h1>
+    </div>
+
+    <div id="home" class="tela">
+        <div class="header">
+            <div>
+                <h2 style="margin: 0; font-size: 24px;">Olá, <span style="color: #D9383A;">Carla Silva!</span></h2>
+                <p style="color: #888; margin: 4px 0 0 0; font-size: 14px;">Como podemos te ajudar?</p>
+            </div>
+            <div class="avatar"></div>
+        </div>
+        
+        <div class="grid-menu">
+            <div class="card-menu">Pacientes</div>
+            <div class="card-menu">Medicação</div>
+            <div class="card-menu sos-btn" onclick="mudarTela('sos')">SOS</div>
+            <div class="card-menu">Conteúdo</div>
+        </div>
+
+        <div class="lembrete-header">🔔 Lembretes de hoje</div>
+        <div id="lista-pacientes"></div>
+    </div>
+
+    <div id="sos" class="tela">
+        <h2 style="color: #D9383A; margin: 0; font-size: 24px;">Ajuda imediata.</h2>
+        <p style="color: #888; margin: 6px 0 0 0; font-size: 14px;">Acione o widget de SOS em caso de Emergência</p>
+        
+        <button class="btn-emergencia" onclick="enviarAlertaSOS()">
+            <div>SOS</div>
+            <small>TOQUE AQUI PARA<br>ACIONAR</small>
+        </button>
+
+        <div class="info-box">
+            <strong style="display: block; margin-bottom: 8px; color: #333;">O que acontece quando acionado?</strong>
+            <ul style="margin: 0; padding-left: 16px;">
+                <li>O Cuidador será notificado imediatamente.</li>
+                <li>Serviços emergenciais serão acionados e as informações do paciente compartilhadas.</li>
+            </ul>
+        </div>
+        <button class="voltar" onclick="mudarTela('home')">Voltar para Home</button>
+    </div>
+</div>
+
+<script>
+    // Transição automática da Splash Screen após 2.2 segundos
+    setTimeout(() => { mudarTela('home'); carregarDados(); }, 2200);
+
+    function mudarTela(id) {
+        document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+        document.getElementById(id).classList.add('ativa');
+    }
+
+    // Busca os dados lá do seu banco MongoDB passando pelo Java
+    function carregarDados() {
+        fetch('/api/pacientes')
+            .then(res => res.json())
+            .then(data => {
+                const lista = document.getElementById('lista-pacientes');
+                lista.innerHTML = '';
+                data.forEach(p => {
+                    p.medicacoes.forEach(m => {
+                        lista.innerHTML += `
+                            <div class="lembrete-box">
+                                <div>
+                                    <div style="font-weight: bold; color: #333;">${p.parentesco} <span style="font-weight:normal; color:#666;">(${p.nome})</span></div>
+                                    <div style="color: #666; font-size: 13px; margin-top: 2px;">${m.nome} ${m.dosagem}</div>
+                                </div>
+                                <div style="color: #D9383A; font-weight: bold; font-size: 12px; background: #FFE3E3; padding: 4px 8px; border-radius: 8px;">${m.horario}</div>
+                            </div>
+                        `;
+                    });
+                });
+            });
+    }
+
+    // Aciona o clique do botão vermelho de SOS
+    function enviarAlertaSOS() {
+        fetch('/api/pacientes/sos', { method: 'POST' })
+            .then(res => res.text())
+            .then(msg => alert(msg));
+    }
+</script>
+</body>
+</html>
