@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Swal from 'sweetalert2'
 import './App.css'
 
 function App() {
@@ -70,11 +71,28 @@ function App() {
   }
 
   const deletarPaciente = (id) => {
-    if (!id) return alert("ID inválido.")
-    if (window.confirm("Deseja remover?")) {
-      fetch(`/api/pacientes/${id}`, { method: 'DELETE' })
-      .then(res => res.ok && carregarDados())
-    }
+    if (!id) return Swal.fire("Erro", "ID inválido.", "error")
+    
+    Swal.fire({
+      title: 'Deseja remover?',
+      text: "Essa ação não poderá ser desfeita!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sim, remover!',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`/api/pacientes/${id}`, { method: 'DELETE' })
+        .then(res => {
+          if (res.ok) {
+            carregarDados()
+            Swal.fire('Removido!', 'O paciente foi removido com sucesso.', 'success')
+          }
+        })
+      }
+    })
   }
 
   const cadastrarPaciente = (e) => {
@@ -92,7 +110,12 @@ function App() {
     })
     .then(res => {
       if (res.ok || res.status === 201) {
-        alert("Cadastrado com sucesso no MongoDB!")
+        Swal.fire({
+          title: 'Sucesso!',
+          text: 'Cadastro realizado com sucesso!',
+          icon: 'success',
+          confirmButtonText: 'OK'
+        })
         setNome(''); setParentesco('')
         setRemedio(''); setDosagem('')
         setHorario('')
@@ -100,7 +123,7 @@ function App() {
         setTela('home')
       }
     })
-    .catch(err => alert("Erro: " + err))
+    .catch(err => Swal.fire("Erro", err.message, "error"))
   }
 
   return (
@@ -191,7 +214,7 @@ function App() {
             </div>
             <h2 className="destaque-vermelho margem-cima-20">Ajuda imediata.</h2>
             <div className="sos-container">
-              <button className="botao-sos-gigante" onClick={() => alert("SOS enviado via Java!")}>
+              <button className="botao-sos-gigante" onClick={() => Swal.fire("SOS", "SOS enviado via Java!", "info")}>
                 <div>SOS</div>
                 <span className="info-toque-sos">TOQUE PARA ACIONAR</span>
               </button>
@@ -209,7 +232,7 @@ function App() {
               <input type="text" placeholder="Remédio" value={remedio} className="caixa-texto" onChange={e => setRemedio(e.target.value)} required />
               <input type="text" placeholder="Dosagem" value={dosagem} className="caixa-texto" onChange={e => setDosagem(e.target.value)} required />
               <input type="text" placeholder="Horário" value={horario} className="caixa-texto" onChange={e => setHorario(e.target.value)} required />
-              <button type="submit" className="btn-verde margem-top-10">Salvar no MongoDB</button>
+              <button type="submit" className="btn-verde margem-top-10">Salvar Cadastro</button>
             </form>
             <button className="btn-cinza margem-top-10" onClick={() => setTela('home')}>Cancelar</button>
           </div>
