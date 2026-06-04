@@ -51,8 +51,7 @@ function App() {
   const [historicoPressao, setHistoricoPressao] = useState(() => {
     const h = localStorage.getItem('hist_pressao')
     return h ? JSON.parse(h) : [
-      { data: '03/06', hora: '08:00', sistolica: 12, diastolica: 8, periodo: 'Manhã' },
-      { data: '03/06', hora: '14:00', sistolica: 13, diastolica: 9, periodo: 'Tarde' }
+      { data: '03/06', hora: '08:00', sistolica: 12, diastolica: 8, periodo: 'Manhã' }
     ]
   })
 
@@ -75,6 +74,9 @@ function App() {
   const [dosagem, setDosagem] = useState('')
   const [horario, setHorario] = useState('')
 
+  // =========================================================================
+  // EFFECT E BUSCA DE DADOS CONECTADA AO BACK-END JAVA (PORTA 8080)
+  // =========================================================================
   useEffect(() => {
     if (tela === 'home' || tela === 'meus_pacientes' || tela === 'diario_saude') {
       carregarDados()
@@ -82,7 +84,7 @@ function App() {
   }, [tela])
 
   const carregarDados = () => {
-    fetch('/api/pacientes')
+    fetch('http://localhost:8080/api/pacientes')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -96,7 +98,34 @@ function App() {
       .catch(() => setPacientes([]))
   }
 
-  // TROCA DE TURNO RÁPIDA (SELECIONA QUEM EXISTE)
+  // =========================================================================
+  // CHAMADAS HTTP DO MVP DE IMPACTO SOCIAL (INTEGRAÇÃO COM O JAVA)
+  // =========================================================================
+
+  // TELA 1: Ação do botão para pedir renovação de receita para o Postinho
+  const handleRenovarReceita = (id) => {
+    fetch(`http://localhost:8080/api/pacientes/${id}/renovar-receita`, { method: 'PUT' })
+      .then(res => {
+        if (res.ok) {
+          Swal.fire("Pedido Enviado!", "Sua solicitação de renovação já está na mesa do médico da UBS. Evite filas!", "success")
+          carregarDados()
+        }
+      })
+  }
+
+  // TELA 2: Ação do botão diário "Estou Bem"
+  const handleConfirmarDiario = (id) => {
+    fetch(`http://localhost:8080/api/pacientes/${id}/confirmar-diario`, { method: 'PUT' })
+      .then(res => {
+        if (res.ok) {
+          Swal.fire("Que ótimo!", "Sua rede de apoio comunitária foi avisada que você está bem hoje.", "success")
+          carregarDados()
+        }
+      })
+  }
+
+  // =========================================================================
+
   const handleTrocarCuidador = () => {
     Swal.fire({
       title: 'Troca de Turno',
@@ -115,40 +144,33 @@ function App() {
     })
   }
 
-  // CADASTRO DIRETO DE CUIDADORES VIA FORMULÁRIO IN-LINE
   const cadastrarCuidadorDireto = (e) => {
     e.preventDefault()
     const n = novoCuidadorNome.trim()
     if (!n) return
-
     if (listaCuidadores.includes(n)) {
       Swal.fire("Aviso", "Este cuidador já está cadastrado.", "warning")
       return
     }
-
     const nLista = [...listaCuidadores, n]
     setListaCuidadores(nLista)
     localStorage.setItem('list_cuid', JSON.stringify(nLista))
     setNovoCuidadorNome('')
     setAddCuidadorModo(false)
-    Swal.fire("Sucesso!", "Novo cuidador adicionado.", "success")
+    Swal.fire("Sucesso!", "Novo protetor adicionado.", "success")
   }
 
-  // FUNÇÃO EXCLUSIVA PARA APAGAR CUIDADORES / ENFERMEIROS
   const deletarCuidador = (nomeParaDeletar) => {
     if (nomeParaDeletar === nomeCuidador) {
-      return Swal.fire("Ação Bloqueada", "Você está ativo no plantão agora.", "warning")
+      return Swal.fire("Ação Bloqueada", "Você está ativo no monitoramento agora.", "warning")
     }
-
     Swal.fire({
       title: `Remover ${nomeParaDeletar}?`,
-      text: "O perfil do profissional sairá definitivamente da lista do sistema.",
+      text: "O perfil sairá definitivamente da lista do sistema.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
-      cancelButtonColor: '#9e9e9e',
-      confirmButtonText: 'Sim, remover!',
-      cancelButtonText: 'Cancelar'
+      confirmButtonText: 'Sim, remover!'
     }).then((result) => {
       if (result.isConfirmed) {
         const nLista = listaCuidadores.filter(c => c !== nomeParaDeletar)
@@ -162,18 +184,16 @@ function App() {
   const deletarPaciente = (id) => {
     if (!id) return
     Swal.fire({
-      title: 'Remover o paciente?',
+      title: 'Remover o cadastro?',
       text: "Todos os dados associados serão perdidos.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
-      cancelButtonColor: '#9e9e9e',
-      confirmButtonText: 'Sim, remover!'
     }).then((result) => {
       if (result.isConfirmed) {
-        fetch(`/api/pacientes/${id}`, { method: 'DELETE' })
+        fetch(`http://localhost:8080/api/pacientes/${id}`, { method: 'DELETE' })
           .then(() => {
-            Swal.fire("Removido!", "Paciente excluído.", "success")
+            Swal.fire("Removido!", "Cadastro excluído.", "success")
             carregarDados()
           })
       }
@@ -185,10 +205,12 @@ function App() {
     const novo = {
       nome: nome.trim(),
       parentesco: parentesco.trim(),
+      statusReceita: "Vencendo",
+      statusConfirmacaoDiaria: "Pendente",
       medicacoes: remedio ? [{ nome: remedio.trim(), dosagem: dosagem.trim(), horario: horario.trim() }] : []
     }
 
-    fetch('/api/pacientes', {
+    fetch('http://localhost:8080/api/pacientes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(novo)
@@ -205,7 +227,7 @@ function App() {
     const id = pacientes[0].id || pacientes[0]._id
     const med = { nome: novoRemedioNome.trim(), dosagem: novoRemedioDose.trim(), horario: novoRemedioHora.trim() }
 
-    fetch(`/api/pacientes/${id}/medicacoes`, {
+    fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(med)
@@ -218,7 +240,7 @@ function App() {
 
   const removerRemedioAba = (idx) => {
     const id = pacientes[0].id || pacientes[0]._id
-    fetch(`/api/pacientes/${id}/medicacoes/${idx}`, { method: 'DELETE' })
+    fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes/${idx}`, { method: 'DELETE' })
       .then(() => carregarDados())
   }
 
@@ -240,11 +262,7 @@ function App() {
   const renderNomePacienteHome = () => {
     if (!pacientes || pacientes.length === 0 || !pacientes[0]) return 'Nenhum paciente'
     const p = pacientes[0]
-    const cLower = nomeCuidador.toLowerCase()
-    if (cLower.includes('filho') || cLower.includes('filha') || cLower.includes('familiar') || cLower.includes('tiago')) {
-      return p.parentesco ? p.parentesco.toLowerCase() : p.nome
-    }
-    return p.nome
+    return p.parentesco ? p.parentesco.toLowerCase() : p.nome
   }
 
   return (
@@ -269,24 +287,62 @@ function App() {
           <div className="tela-scroll">
             <div className="home-header"><div className="logo-texto">❤️ START+HELP</div></div>
 
+            {/* TELA 3: ALERTA PRIORITÁRIO DA UBS (MÉDICO AUSENTE / REMARCAÇÃO) */}
+            {pacientes?.[0]?.alertaUBS && (
+              <div style={{ background: '#fffae6', border: '2px solid #ffcc00', borderRadius: '15px', padding: '12px', margin: '15px 20px', color: '#8a6d3b', fontWeight: 'bold', textAlign: 'left', fontSize: '13px' }}>
+                ⚠️ <b>AVISO DO POSTINHO DE SAÚDE:</b><br/>
+                <span style={{ fontWeight: '500', display: 'block', marginTop: '4px' }}>{pacientes[0].alertaUBS}</span>
+              </div>
+            )}
+
             <div className="saudacao-bloco" style={{ padding: '0 20px', margin: '20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ textAlign: 'left' }}>
-                <p style={{ fontSize: '14px', color: '#777', margin: 0 }}>Plantão de: <b>{nomeCuidador}</b></p>
+                <p style={{ fontSize: '14px', color: '#777', margin: 0 }}>Monitoramento de: <b>{nomeCuidador}</b></p>
                 <h2 style={{ fontSize: '24px', margin: '5px 0 0 0', color: '#333' }}>
-                  Cuidando de: <span className="destaque-vermelho" style={{ textTransform: 'capitalize' }}>{renderNomePacienteHome()}</span>
+                  Acompanhando: <span className="destaque-vermelho" style={{ textTransform: 'capitalize' }}>{renderNomePacienteHome()}</span>
                 </h2>
               </div>
-              <button onClick={handleTrocarCuidador} style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '12px', width: '44px', height: '44px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Trocar Turno">
-                👤
-              </button>
+              <button onClick={handleTrocarCuidador} style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '12px', width: '44px', height: '44px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</button>
             </div>
+
+            {/* SEÇÃO EXCLUSIVA MVP IMPACTO SOCIAL CLASSE D */}
+            {pacientes?.[0] && (
+              <div style={{ padding: '0 20px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                
+                {/* TELA 1: CARD INTELIGENTE PARA EVITAR FILA DE RECEITA NA UBS */}
+                {pacientes[0].statusReceita === 'Vencendo' ? (
+                  <div style={{ background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '15px', padding: '15px', textAlign: 'left' }}>
+                    <div style={{ fontWeight: 'bold', color: '#0d47a1', fontSize: '14px' }}>📄 Receita do Postinho vencendo em 15 dias!</div>
+                    <p style={{ fontSize: '12px', color: '#1565c0', margin: '5px 0 10px 0' }}>Deseja solicitar a renovação automática sem pegar fila?</p>
+                    <button onClick={() => handleRenovarReceita(pacientes[0].id || pacientes[0]._id)} style={{ background: '#1976d2', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>Solicitar Renovação</button>
+                  </div>
+                ) : pacientes[0].statusReceita === 'Aguardando Assinatura' ? (
+                  <div style={{ background: '#fff3e0', border: '1px solid #ffb74d', borderRadius: '15px', padding: '12px', textAlign: 'left', fontSize: '13px', color: '#e65100', fontWeight: 'bold' }}>
+                    ⏳ Aguardando assinatura do médico da UBS. Não vá ao posto ainda!
+                  </div>
+                ) : null}
+
+                {/* TELA 2: BOTÃO DIÁRIO DE PROTEÇÃO PASSIVA COMUNITÁRIA */}
+                {pacientes[0].statusConfirmacaoDiaria === 'Pendente' ? (
+                  <button onClick={() => handleConfirmarDiario(pacientes[0].id || pacientes[0]._id)} style={{ background: '#2e7d32', color: '#fff', border: 'none', width: '100%', padding: '15px', borderRadius: '15px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                    🌅 BOM DIA! Clique aqui para avisar que está tudo bem
+                  </button>
+                ) : (
+                  <div style={{ background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: '15px', padding: '12px', textAlign: 'center', color: '#1b5e20', fontWeight: 'bold', fontSize: '13px' }}>
+                    ✓ Status do dia confirmado. Rede comunitária tranquila!
+                  </div>
+                )}
+
+              </div>
+            )}
             
             <div className="card-grade">
+              {/* TERMO CORRIGIDO NA HOME TAMBÉM: De "Gerenciar" para "Cadastros" */}
               <div className="card-figma" onClick={() => { setTela('meus_pacientes'); setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }}>
                 <div className="icone-card bg-vermelho-claro" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>👥</div>
                 <div>
-                  <div className="texto-card-bold">Gerenciar</div>
-                  <div style={cardTextoEstilo}>Pacientes e Cuidadores.</div>
+                  <div className="texto-card-bold">Cadastros</div>
+                  <div style={cardTextoEstilo}>Idosos e vizinhos.</div>
                 </div>
               </div>
 
@@ -306,7 +362,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="card-figma" onClick={() => Swal.fire("Guia de Saúde", "Orientações e cuidados.", "info")}>
+              <div className="card-figma" onClick={() => Swal.fire("Guia de Saúde", "Orientações e cuidados comunitários.", "info")}>
                 <div className="icone-card bg-verde-claro" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>📋</div>
                 <div>
                   <div className="texto-card-bold">Guia de Saúde</div>
@@ -406,7 +462,7 @@ function App() {
           <div className="tela-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>❤️ START+HELP</b><button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button></div>
             <div className="sos-container">
-              <button className="botao-sos-gigante" onClick={() => Swal.fire("SOS", "Alerta emitido!", "error")}>
+              <button className="botao-sos-gigante" onClick={() => Swal.fire("🚨 ALERTA SOS EMITIDO!", "A vizinha Maria e o seu filho Tiago receberam sua localização via SMS de emergência. Fique calmo, o socorro está a caminho!", "error")}>
                 <div>SOS</div>
               </button>
             </div>
@@ -417,7 +473,7 @@ function App() {
           <div className="tela-scroll">
             <h2>Novo Cadastro</h2>
             <form onSubmit={cadastrarPacienteGeral} className="form-cadastro">
-              <input type="text" placeholder="Nome do paciente" value={nome} className="caixa-texto" onChange={e => setNome(e.target.value)} required />
+              <input type="text" placeholder="Nome do idoso(a)" value={nome} className="caixa-texto" onChange={e => setNome(e.target.value)} required />
               <input type="text" placeholder="Parentesco" value={parentesco} className="caixa-texto" onChange={e => setParentesco(e.target.value)} required />
               <input type="text" placeholder="Remédio (Opcional)" value={remedio} className="caixa-texto" onChange={e => setRemedio(e.target.value)} />
               <input type="text" placeholder="Dosagem" value={dosagem} className="caixa-texto" onChange={e => setDosagem(e.target.value)} />
@@ -431,13 +487,14 @@ function App() {
         {tela === 'meus_pacientes' && (
           <div className="tela-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#c62828' }}>Gerenciar Sistema</h2>
+              {/* TÍTULO CORRIGIDO COM SUCESSO AQUI */}
+              <h2 style={{ margin: 0, fontSize: '22px', color: '#c62828' }}>Pessoas Cadastradas</h2>
               <button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button>
             </div>
 
             <div style={{ display: 'flex', background: '#eee', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
-              <button onClick={() => { setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'pacientes' ? '#fff' : 'transparent', fontWeight: 'bold' }}>👥 Pacientes</button>
-              <button onClick={() => setAbaGerenciar('cuidadores')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'cuidadores' ? '#fff' : 'transparent', fontWeight: 'bold' }}>👤 Cuidadores</button>
+              <button onClick={() => { setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'pacientes' ? '#fff' : 'transparent', fontWeight: 'bold' }}>👥 Idosos</button>
+              <button onClick={() => setAbaGerenciar('cuidadores')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'cuidadores' ? '#fff' : 'transparent', fontWeight: 'bold' }}>👤 Vizinhos (Protetores)</button>
             </div>
 
             {abaGerenciar === 'pacientes' && (
@@ -445,13 +502,13 @@ function App() {
                 {pacientes.map((p, i) => (
                   <div key={i} className="card-paciente" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', marginBottom: '10px', borderRadius: '12px', background: '#fff', border: '1px solid #eee' }}>
                     <div style={{ textAlign: 'left' }}>
-                      <b style={{ textTransform: 'capitalize', color: '#c62828' }}>{p.parentesco || 'Paciente'}</b>
+                      <b style={{ textTransform: 'capitalize', color: '#c62828' }}>{p.parentesco || 'Idoso(a)'}</b>
                       <div style={{ fontSize: '13px' }}>{p.nome}</div>
                     </div>
                     <button onClick={() => deletarPaciente(p.id || p._id)} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
                   </div>
                 ))}
-                <button onClick={() => setTela('cadastro')} style={{ background: '#2e7d32', color: '#fff', border: 'none', width: '100%', padding: '10px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>+ Incluir Novo Paciente</button>
+                <button onClick={() => setTela('cadastro')} style={{ background: '#2e7d32', color: '#fff', border: 'none', width: '100%', padding: '10px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>+ Cadastrar Novo Idoso</button>
               </div>
             )}
 
@@ -462,22 +519,20 @@ function App() {
                     <div style={{ textAlign: 'left' }}>
                       <b>{c}</b>
                       <div style={{ fontSize: '11px', color: c === nomeCuidador ? '#2e7d32' : '#777' }}>
-                        {c === nomeCuidador ? '● Ativo no Plantão' : 'Disponível'}
+                        {c === nomeCuidador ? '● Ativo no Monitoramento' : 'Disponível'}
                       </div>
                     </div>
-                    {/* A LIXEIRA FICA AQUI PARA EXCLUIR OS PERFIS QUE NÃO ESTÃO ATIVOS */}
                     {c !== nomeCuidador && (
                       <button onClick={() => deletarCuidador(c)} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
                     )}
                   </div>
                 ))}
 
-                {/* FORMULÁRIO IN-LINE EXCLUSIVO PARA INCLUSÃO SEM CONFLITO VISUAL */}
                 {!addCuidadorModo ? (
-                  <button onClick={() => setAddCuidadorModo(true)} style={{ background: '#1976d2', color: '#fff', border: 'none', width: '100%', padding: '10px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>+ Incluir Novo Cuidador</button>
+                  <button onClick={() => setAddCuidadorModo(true)} style={{ background: '#1976d2', color: '#fff', border: 'none', width: '100%', padding: '10px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>+ Incluir Novo Protetor</button>
                 ) : (
                   <form onSubmit={cadastrarCuidadorDireto} style={{ background: '#f5f5f5', padding: '15px', borderRadius: '12px', marginTop: '15px', textAlign: 'left' }}>
-                    <input type="text" placeholder="Nome do cuidador" value={novoCuidadorNome} onChange={e => setNovoCuidadorNome(e.target.value)} style={{ width: '92%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ccc' }} required />
+                    <input type="text" placeholder="Nome do protetor / vizinho" value={novoCuidadorNome} onChange={e => setNovoCuidadorNome(e.target.value)} style={{ width: '92%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ccc' }} required />
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button type="submit" style={{ flex: 1, background: '#4caf50', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: 'bold' }}>Salvar</button>
                       <button type="button" onClick={() => setAddCuidadorModo(false)} style={{ flex: 1, background: '#9e9e9e', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: 'bold' }}>Cancelar</button>
