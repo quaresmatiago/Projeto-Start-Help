@@ -1,6 +1,7 @@
 package com.example.starthelp.controller;
 
 import com.example.starthelp.model.Paciente;
+import com.example.starthelp.model.Medicacao;
 import com.example.starthelp.repository.PacienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class PacienteController {
         return repository.findAll();
     }
 
-    // Rota de Cadastro corrigida para aceitar o método POST
+    // Rota de Cadastro de Paciente
     @PostMapping
     public Paciente cadastrar(@RequestBody Paciente paciente) {
         return repository.save(paciente);
@@ -34,7 +35,35 @@ public class PacienteController {
     }
 
     // =========================================================================
-    // NOVOS ENDPOINTS - MVP DE IMPACTO SOCIAL (APRESENTAÇÃO DIA 09)
+    // ROTAS DE MEDICAÇÕES - DIÁRIO DE SAÚDE
+    // =========================================================================
+
+    // ROTA PARA ADICIONAR UM REMÉDIO NA LISTA DO PACIENTE
+    @PostMapping("/{id}/medicacoes")
+    public ResponseEntity<Paciente> adicionarMedicacao(@PathVariable String id, @RequestBody Medicacao novaMedicacao) {
+        return repository.findById(id).map(paciente -> {
+            // Adiciona o novo remédio na lista de medicações que já existem no paciente
+            paciente.getMedicacoes().add(novaMedicacao);
+            Paciente atualizado = repository.save(paciente);
+            return ResponseEntity.ok(atualizado);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // ROTA PARA REMOVER UM REMÉDIO DA LISTA DO PACIENTE PELO ÍNDICE (LIXEIRA)
+    @DeleteMapping("/{id}/medicacoes/{index}")
+    public ResponseEntity<Paciente> removerMedicacao(@PathVariable String id, @PathVariable int index) {
+        return repository.findById(id).map(paciente -> {
+            if (index >= 0 && index < paciente.getMedicacoes().size()) {
+                paciente.getMedicacoes().remove(index);
+                Paciente atualizado = repository.save(paciente);
+                return ResponseEntity.ok(atualizado);
+            }
+            return ResponseEntity.badRequest().<Paciente>build();
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // =========================================================================
+    // ENDPOINTS COMPLEMENTARES - MVP DE IMPACTO SOCIAL
     // =========================================================================
 
     // TELA 1: Mudar o status da receita para "Aguardando Assinatura" ao clicar em renovar

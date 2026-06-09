@@ -23,14 +23,6 @@ const cardTextoEstilo = {
   fontWeight: '500'
 }
 
-const cardSosEstilo = {
-  fontSize: '12px',
-  color: '#fff',
-  opacity: '0.9',
-  textAlign: 'center',
-  fontWeight: '500'
-}
-
 function App() {
   const [tela, setTela] = useState('home')
   const [pacientes, setPacientes] = useState([])
@@ -70,6 +62,31 @@ function App() {
   const [remedio, setRemedio] = useState('')
   const [dosagem, setDosagem] = useState('')
   const [horario, setHorario] = useState('')
+
+  // LISTA ESTÁTICA PARA O GUIA DE SAÚDE
+  const artigosGuia = [
+    {
+      id: 1,
+      titulo: "Prevenção de Quedas",
+      categoria: "Idosos",
+      descricao: "Remova tapetes soltos, melhore a iluminação dos corredores e instale barras de apoio no banheiro.",
+      icone: "🦽"
+    },
+    {
+      id: 2,
+      titulo: "Manobra de Heimlich",
+      categoria: "Primeiros Socorros",
+      descricao: "Em caso de engasgo: posicione-se por trás, envolva a cintura com os braços e pressione o abdômen para cima.",
+      icone: "𫁦"
+    },
+    {
+      id: 3,
+      titulo: "Sinais de Desidratação",
+      categoria: "Cuidados Diários",
+      descricao: "Monitore sempre: boca seca, apatia, choro sem lágrimas e urina em tonalidade muito escura.",
+      icone: "💧"
+    }
+  ]
 
   useEffect(() => {
     if (tela === 'home' || tela === 'meus_pacientes' || tela === 'diario_saude') {
@@ -216,22 +233,53 @@ function App() {
 
   const adicionarRemedioAba = (e) => {
     e.preventDefault()
-    if (!pacientes || pacientes.length === 0) return
-    const id = pacientes[0].id || pacientes[0]._id
-    const med = { nome: novoRemedioNome.trim(), dosagem: novoRemedioDose.trim(), horario: novoRemedioHora.trim() }
+    
+    fetch('http://localhost:8080/api/pacientes')
+      .then(res => res.json())
+      .then(listaPacientes => {
+        const dadosPacientes = Array.isArray(listaPacientes) ? listaPacientes : [listaPacientes];
+        
+        if (!dadosPacientes || dadosPacientes.length === 0 || !dadosPacientes[0]) {
+          Swal.fire("Erro", "Nenhum paciente cadastrado. Vá em 'Pacientes' e crie um cadastro primeiro.", "error")
+          return;
+        }
 
-    fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(med)
-    }).then(() => {
-      setNovoRemedioNome(''); setNovoRemedioDose(''); setNovoRemedioHora('')
-      setAddModo(false)
-      carregarDados()
-    })
+        const p = dadosPacientes[0];
+        const id = p.id || p._id;
+
+        if (!id) {
+          Swal.fire("Erro", "Paciente sem identificador válido no MongoDB.", "error")
+          return;
+        }
+
+        const med = { 
+          nome: novoRemedioNome.trim(), 
+          dosagem: novoRemedioDose.trim(), 
+          horario: novoRemedioHora.trim() 
+        }
+
+        fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(med)
+        }).then(res => {
+          if (res.ok) {
+            setNovoRemedioNome(''); 
+            setNovoRemedioDose(''); 
+            setNovoRemedioHora('');
+            setAddModo(false);
+            carregarDados();
+            Swal.fire("Sucesso!", "Medicamento agendado com sucesso.", "success");
+          }
+        });
+      })
+      .catch(() => {
+        Swal.fire("Erro", "Falha na comunicação com o servidor.", "error")
+      })
   }
 
   const removerRemedioAba = (idx) => {
+    if (!pacientes || pacientes.length === 0) return
     const id = pacientes[0].id || pacientes[0]._id
     fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes/${idx}`, { method: 'DELETE' })
       .then(() => carregarDados())
@@ -279,7 +327,10 @@ function App() {
           <div className="tela-scroll">
             <div className="home-header">
               <div className="logo-texto">❤️ START+HELP</div>
-              <button onClick={handleTrocarCuidador} className="seletor-cuidador">👤 Alternar Turno</button>
+              <div className="header-botoes-grupo">
+                <button onClick={() => setTela('sos')} className="btn-sos-header">🚨 BOTÃO SOS</button>
+                <button onClick={handleTrocarCuidador} className="seletor-cuidador">👤 Alternar Turno</button>
+              </div>
             </div>
 
             {pacientes?.[0]?.alertaUBS && (
@@ -291,7 +342,7 @@ function App() {
 
             <div className="saudacao-bloco">
               <p>Monitor local ativo: <b>{nomeCuidador}</b></p>
-              <h2>Olá! Acompanhando: <span className="destaque-vermelho" style={{ textTransform: 'capitalize' }}>{renderNomePacienteHome()}</span></h2>
+              <h2>Olá! Paciente: <span className="destaque-vermelho" style={{ textTransform: 'capitalize' }}>{renderNomePacienteHome()}</span></h2>
             </div>
 
             {pacientes?.[0] && (
@@ -320,7 +371,6 @@ function App() {
               </div>
             )}
             
-            {/* GRADE DE RECURSOS CORRIGIDA EM 2X2 COM OS TERMOS CORRETOS */}
             <div className="card-grade">
               <div className="card-figma" onClick={() => { setTela('meus_pacientes'); setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }}>
                 <div className="icone-card bg-vermelho-claro">👥</div>
@@ -334,26 +384,22 @@ function App() {
                 <div style={cardTextoEstilo}>Remédios e Pressão.</div>
               </div>
 
-              <div className="card-sos-vermelho" onClick={() => setTela('sos')}>
-                <div className="icone-card">🚨</div>
-                <div className="texto-card-bold">SOS</div>
-                <div style={cardSosEstilo}>Emergências rápidas.</div>
-              </div>
-
-              <div className="card-figma" onClick={() => Swal.fire("Guia de Saúde", "Orientações e cuidados assistenciais.", "info")}>
+              <div className="card-figma" onClick={() => setTela('guia_saude')}>
                 <div className="icone-card bg-verde-claro">📋</div>
                 <div className="texto-card-bold">Guia de Saúde</div>
                 <div style={cardTextoEstilo}>Orientações e cuidados.</div>
               </div>
             </div>
 
-            <div className="alerta-header">
-              <span className="alerta-titulo">🔔 Próximos Remédios Agendados</span>
+            {/* TÍTULO CENTRALIZADO */}
+            <div className="alerta-header" style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <span className="alerta-titulo" style={{ textAlign: 'center' }}>🔔 Próximos Remédios Agendados</span>
             </div>
             
-            <div className="lista-lembretes">
+            {/* GRID DE CARDS CENTRALIZADO */}
+            <div className="grid-lembretes-ajuste" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '10px', justifyContent: 'center', justifyContentItems: 'center' }}>
               {pacientes?.[0]?.medicacoes?.map((m, idx) => (
-                <div key={idx} className="card-paciente" onClick={() => { setRemedioAlarme(m.nome); setAlarmeAtivo(true); }} style={{ cursor: 'pointer' }}>
+                <div key={idx} className="card-paciente" onClick={() => { setRemedioAlarme(m.nome); setAlarmeAtivo(true); }} style={{ cursor: 'pointer', width: '100%', maxWidth: '340px' }}>
                   <div className="paciente-info-bloco">
                     <div className="avatar-idoso">💊</div>
                     <div style={{ textAlign: 'left' }}>
@@ -361,11 +407,22 @@ function App() {
                       <div style={{ fontSize: '12px', color: '#666' }}>{m.dosagem}</div>
                     </div>
                   </div>
-                  <div className="remedio-tag">{m.horario}</div>
+                  {/* TRATAMENTO AUTOMÁTICO BLINDADO NA HOME */}
+                  <div className="remedio-tag" style={{ minWidth: '140px', textAlign: 'center' }}>
+                    {(() => {
+                      const texto = m.horario.trim();
+                      if (texto.toLowerCase().startsWith('de ') || texto.includes('/')) {
+                        return texto;
+                      }
+                      const apenasNumero = texto.replace(/\D/g, '');
+                      if (!apenasNumero) return texto;
+                      return `de ${apenasNumero} em ${apenasNumero} horas`;
+                    })()}
+                  </div>
                 </div>
               ))}
               {(!pacientes?.[0]?.medicacoes || pacientes[0].medicacoes.length === 0) && (
-                <div style={{ color: '#94a3b8', padding: '10px', textAlign: 'center' }}>Nenhum remédio agendado.</div>
+                <div style={{ color: '#94a3b8', padding: '10px', textAlign: 'center', gridColumn: '1/-1' }}>Nenhum remédio agendado.</div>
               )}
             </div>
           </div>
@@ -391,7 +448,20 @@ function App() {
                     <div key={idx} className="card-paciente" style={{ borderLeft: '5px solid #E53935' }}>
                       <div style={{ textAlign: 'left' }}>
                         <div style={{ fontWeight: 'bold' }}>{m.nome}</div>
-                        <div style={{ fontSize: '12px', color: '#777' }}>{m.dosagem} - <span style={{ color: '#E53935', fontWeight: 'bold' }}>{m.horario}</span></div>
+                        {/* TRATAMENTO AUTOMÁTICO BLINDADO NO DIÁRIO */}
+                        <div style={{ fontSize: '12px', color: '#777' }}>
+                          {m.dosagem} - <span style={{ color: '#E53935', fontWeight: 'bold' }}>
+                            {(() => {
+                              const texto = m.horario.trim();
+                              if (texto.toLowerCase().startsWith('de ') || texto.includes('/')) {
+                                return texto;
+                              }
+                              const apenasNumero = texto.replace(/\D/g, '');
+                              if (!apenasNumero) return texto;
+                              return `de ${apenasNumero} em ${apenasNumero} horas`;
+                            })()}
+                          </span>
+                        </div>
                       </div>
                       <button onClick={() => removerRemedioAba(idx)} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
                     </div>
@@ -404,7 +474,7 @@ function App() {
                   <form onSubmit={adicionarRemedioAba} className="form-cadastro" style={{ background: '#F5F5F5', padding: '15px', borderRadius: '12px', marginTop: '15px' }}>
                     <input type="text" placeholder="Nome do remédio" value={novoRemedioNome} onChange={e => setNovoRemedioNome(e.target.value)} className="caixa-texto" required />
                     <input type="text" placeholder="Dosagem" value={novoRemedioDose} onChange={e => setNovoRemedioDose(e.target.value)} className="caixa-texto" required />
-                    <input type="text" placeholder="Horário (Ex: 08:00)" value={novoRemedioHora} onChange={e => setNovoRemedioHora(e.target.value)} className="caixa-texto" required />
+                    <input type="text" placeholder="Horário (Ex: 8 ou 12)" value={novoRemedioHora} onChange={e => setNovoRemedioHora(e.target.value)} className="caixa-texto" required />
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button type="submit" className="btn-verde" style={{ flex: 1 }}>Salvar</button>
                       <button type="button" onClick={() => setAddModo(false)} className="btn-cinza" style={{ flex: 1 }}>Cancelar</button>
@@ -452,14 +522,46 @@ function App() {
           </div>
         )}
 
-        {/* TELA SOS */}
+       {/* TELA SOS */}
         {tela === 'sos' && (
           <div className="tela-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>❤️ START+HELP</b><button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button></div>
             <div className="sos-container">
-              <button className="botao-sos-gigante" onClick={() => Swal.fire("🚨 ALERTA SOS EMITIDO!", "Os profissionais de plantão receberam os dados de emergência. O socorro está a caminho!", "error")}>
+              <button className="botao-sos-gigante" onClick={() => 
+                Swal.fire({
+                  title: '🚨 ALERTA SOS EMITIDO!',
+                  text: 'Os profissionais de plantão receberam os dados de emergência. O socorro está a caminho!',
+                  icon: 'warning',
+                  confirmButtonText: 'OK',
+                  confirmButtonColor: '#E53935'
+                })
+              }>
                 <div>SOS</div>
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* TELA DO GUIA DE SAÚDE */}
+        {tela === 'guia_saude' && (
+          <div className="tela-scroll" style={{ textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h2 style={{ margin: 0, fontSize: '24px', color: '#2E7D32', fontWeight: 'bold' }}>📋 Guia de Saúde</h2>
+              <button className="btn-cinza" style={{ fontSize: '14px', padding: '8px 16px' }} onClick={() => setTela('home')}>Voltar</button>
+            </div>
+            <p style={{ fontSize: '15px', color: '#555', marginTop: '-5px', marginBottom: '25px' }}>Orientações rápidas e cuidados fundamentais.</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {artigosGuia.map((artigo) => (
+                <div key={artigo.id} className="card-paciente" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '18px', gap: '8px', cursor: 'pointer' }} onClick={() => Swal.fire(artigo.titulo, artigo.descricao, "info")}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#2E7D32', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{artigo.categoria}</span>
+                    <span style={{ fontSize: '26px' }}>{artigo.icone}</span>
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '18px', color: '#111', fontWeight: '700' }}>{artigo.titulo}</h3>
+                  <p style={{ margin: 0, fontSize: '14px', color: '#444', lineHeight: '1.5', fontWeight: '500' }}>{artigo.descricao}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -488,7 +590,6 @@ function App() {
               <button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button>
             </div>
 
-            {/* ABAS COM NOMES CORRIGIDOS */}
             <div style={{ display: 'flex', background: '#eee', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
               <button onClick={() => { setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'pacientes' ? '#fff' : 'transparent', fontWeight: 'bold', cursor: 'pointer' }}>👥 Pacientes</button>
               <button onClick={() => setAbaGerenciar('cuidadores')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'cuidadores' ? '#fff' : 'transparent', fontWeight: 'bold' }}>👤 Cuidadores / Enfermeiros</button>
@@ -532,7 +633,7 @@ function App() {
                     <input type="text" placeholder="Nome do profissional" value={novoCuidadorNome} onChange={e => setNovoCuidadorNome(e.target.value)} className="caixa-texto" required />
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                       <button type="submit" className="btn-verde" style={{ flex: 1 }}>Salvar</button>
-                      <button type="button" onClick={() => setAddCuidadorModo(false)} className="btn-cinza" style={{ flex: 1 }}>Cancelar</button>
+                      <button type="button" onClick={() => setAddModo(false)} className="btn-cinza" style={{ flex: 1 }}>Cancelar</button>
                     </div>
                   </form>
                 )}
@@ -546,4 +647,4 @@ function App() {
   )
 }
 
-export default App
+export default App;
