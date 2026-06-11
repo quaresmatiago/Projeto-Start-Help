@@ -1,4 +1,4 @@
-/* IMPORTANDO UMA FONTE MODERNA */
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 body {
@@ -9,7 +9,7 @@ body {
   color: #1e293b;
 }
 
-/* CONTAINER PRINCIPAL DO SITE DO TAMANHO DA TELA */
+
 .flex-centro-container {
   display: flex;
   justify-content: center;
@@ -19,14 +19,14 @@ body {
   box-sizing: border-box;
 }
 
-/* ADAPTADO PARA LAYOUT DE SITE/DASHBOARD WIDESCREEN */
+
 .celular {
   width: 100%;
-  max-width: 1200px; /* Largura padrão de site profissional */
+  max-width: 1200px; 
   min-height: 800px;
   background: #FFFFFF;
-  border: 1px solid #e2e8f0; /* Remove a borda grossa de celular */
-  border-radius: 16px; /* Borda suave de painel web */
+  border: 1px solid #e2e8f0; 
+  border-radius: 16px; 
   position: relative;
   overflow: hidden;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
@@ -42,9 +42,9 @@ body {
   align-items: center;
 }
 
-/* CONTEÚDO EXPANDIDO PARA SITE */
+
 .tela-scroll {
-  padding: 40px; /* Mais espaço para respirar na tela do PC */
+  padding: 40px; 
   height: 100%;
   box-sizing: border-box;
   display: flex;
@@ -63,7 +63,7 @@ body {
 .logo-texto {
   color: #D9383A;
   font-weight: 700;
-  font-size: 24px; /* Logo maior no site */
+  font-size: 24px; 
   letter-spacing: -0.5px;
 }
 
@@ -90,7 +90,7 @@ body {
 
 .saudacao-bloco h2 {
   margin: 0;
-  font-size: 32px; /* Título maior */
+  font-size: 32px; 
   font-weight: 700;
   color: #0f172a;
 }
@@ -105,7 +105,7 @@ body {
   color: #D9383A;
 }
 
-/* CARDS EM QUATRO COLUNAS NO PC EM VEZ DE DUAS */
+
 .card-grade {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); /* Se adapta à tela do PC */
@@ -170,7 +170,7 @@ body {
   color: #94a3b8;
 }
 
-/* CARD SOS WEB PREPARADO PARA TELA CHEIA */
+
 .card-sos-vermelho {
   background: linear-gradient(135deg, #D9383A 0%, #C92A2C 100%);
   border: none;
@@ -216,7 +216,7 @@ body {
   font-size: 16px;
 }
 
-/* LISTAS DE LEMBRETES E PACIENTES LADO A LADO SE HOUVER ESPAÇO */
+
 .lista-lembretes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -224,7 +224,7 @@ body {
   margin-bottom: 20px;
 }
 
-/* PACIENTES EM FORMATO DE LINHAS DE SISTEMA WEB */
+
 .card-paciente {
   background-color: #ffffff;
   border-radius: 12px;
@@ -292,12 +292,12 @@ body {
   transform: scale(0.96);
 }
 
-/* FORMULÁRIO WEB CENTRALIZADO */
+
 .form-cadastro {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 500px; /* Centraliza o form no meio do site */
+  max-width: 500px; 
   margin: 0 auto;
   width: 100%;
 }

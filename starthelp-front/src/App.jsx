@@ -379,25 +379,25 @@ function App() {
             
            <div className="card-grade" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginTop: '15px' }}>
   
-  {/* Card 1 */}
+  
   <div className="card-figma" onClick={() => { setAbaPaciente('visualizar_perfil'); setTela('visualizar_historico'); }}>
     <div className="icone-card bg-vermelho-claro">👥</div>
     <div className="texto-card-bold">Prontuário Médico</div>
   </div>
 
-  {/* Card 2 */}
+  
   <div className="card-figma" onClick={() => setTela('diario_saude')}>
     <div className="icone-card bg-cinza-claro">💊</div>
     <div className="texto-card-bold">Diário de Saúde</div>
   </div>
 
-  {/* Card 3 */}
+  
   <div className="card-figma" onClick={() => setTela('guia_saude')}>
     <div className="icone-card bg-verde-claro">📋</div>
     <div className="texto-card-bold">Guia de Saúde</div>
   </div>
 
-  {/* Card 4 - PROFISSIONAIS (O que você quer) */}
+  
   <div className="card-figma" onClick={() => setTela('cadastro_profissional')}>
     <div className="icone-card bg-azul-claro">👨‍⚕️</div>
     <div className="texto-card-bold">Profissionais</div>
