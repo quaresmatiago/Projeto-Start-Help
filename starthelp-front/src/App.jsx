@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import './App.css'
 
-// CONSTANTES DE ESTILO PARA OS MODAIS INDIVIDUAIS
+
 const modalAlarmeEstilo = {
   position: 'absolute',
   top: 0, left: 0, right: 0, bottom: 0,
@@ -24,10 +24,10 @@ const cardTextoEstilo = {
 }
 
 function App() {
-  const [tela, setTela] = useState('home')
-  const [pacientes, setPacientes] = useState([])
+ const [tela, setTela] = useState('home')
+  const [paciente, setPaciente] = useState(null) 
   const [abaAtiva, setAbaAtiva] = useState('remedios')
-  const [abaGerenciar, setAbaGerenciar] = useState('pacientes')
+  const [abaPaciente, setAbaPaciente] = useState('visualizar_perfil')
   
   const [alarmeAtivo, setAlarmeAtivo] = useState(false)
   const [remedioAlarme, setRemedioAlarme] = useState('')
@@ -40,10 +40,15 @@ function App() {
   const [addCuidadorModo, setAddCuidadorModo] = useState(false)
   const [novoCuidadorNome, setNovoCuidadorNome] = useState('')
 
+  // Estados corrigidos e separados
   const [historicoPressao, setHistoricoPressao] = useState(() => {
     const h = localStorage.getItem('hist_pressao')
     return h ? JSON.parse(h) : []
   })
+
+  const [enfermeiros, setEnfermeiros] = useState([]);
+  const [novoEnfNome, setNovoEnfNome] = useState('');
+  const [novoEnfTel, setNovoEnfTel] = useState('');
 
   const [pressaoSis, setPressaoSis] = useState('')
   const [pressaoDia, setPressaoDia] = useState('')
@@ -58,13 +63,22 @@ function App() {
   })
 
   const [nome, setNome] = useState('')
+  const [idade, setIdade] = useState('')
   const [parentesco, setParentesco] = useState('')
   const [remedio, setRemedio] = useState('')
   const [dosagem, setDosagem] = useState('')
   const [horario, setHorario] = useState('')
+  const [peso, setPeso] = useState('')
+  const [tipoSanguineo, setTipoSanguineo] = useState('')
+  const [temHipertensao, setTemHipertensao] = useState(false)
+  const [doencasCronicas, setDoencasCronicas] = useState('')
+  const [alergias, setAlergias] = useState('')
+  const [relatorioPlantao, setRelatorioPlantao] = useState('')
 
-  // LISTA ESTÁTICA PARA O GUIA DE SAÚDE
-  const artigosGuia = [
+  // Estado local para a caixa de texto do livro de plantão
+  const [novaOcorrencia, setNovaOcorrencia] = useState('')
+
+  const articlesGuia = [
     {
       id: 1,
       titulo: "Prevenção de Quedas",
@@ -89,55 +103,58 @@ function App() {
   ]
 
   useEffect(() => {
-    if (tela === 'home' || tela === 'meus_pacientes' || tela === 'diario_saude') {
-      carregarDados()
-    }
+    carregarDados()
   }, [tela])
 
   const carregarDados = () => {
     fetch('http://localhost:8080/api/pacientes')
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 204) {
+          setPaciente(null)
+          return null
+        }
+        return res.json()
+      })
       .then(data => {
-        if (Array.isArray(data)) {
-          setPacientes(data)
-        } else if (data && typeof data === 'object') {
-          setPacientes([data])
+        const dadosPaciente = Array.isArray(data) ? data[0] : data;
+        
+        if (dadosPaciente) {
+          setPaciente(dadosPaciente)
+          setNome(dadosPaciente.nome || '')
+          
+          if (dadosPaciente.idade) {
+            setIdade(String(dadosPaciente.idade).replace(/[^0-9]/g, ''))
+          } else {
+            setIdade('')
+          }
+
+          setParentesco(dadosPaciente.vinculo || dadosPaciente.parentesco || '')
+          
+          if (dadosPaciente.peso) {
+            setPeso(String(dadosPaciente.peso).replace(/[^0-9.]/g, ''))
+          } else {
+            setPeso('')
+          }
+
+          setTipoSanguineo(dadosPaciente.tipoSanguineo || '')
+          setTemHipertensao(dadosPaciente.temHipertensao || false)
+          setDoencasCronicas(dadosPaciente.doencasCronicas || '')
+          setAlergias(dadosPaciente.alergias || '')
+          setRelatorioPlantao(dadosPaciente.relatorioPlantao || '')
         } else {
-          setPacientes([])
+          setPaciente(null)
         }
       })
-      .catch(() => setPacientes([]))
-  }
-
-  const handleRenovarReceita = (id) => {
-    fetch(`http://localhost:8080/api/pacientes/${id}/renovar-receita`, { method: 'PUT' })
-      .then(res => {
-        if (res.ok) {
-          Swal.fire("Pedido Enviado!", "Sua solicitação de renovação já está na mesa do médico da UBS. Evite filas!", "success")
-          carregarDados()
-        }
-      })
-  }
-
-  const handleConfirmarDiario = (id) => {
-    fetch(`http://localhost:8080/api/pacientes/${id}/confirmar-diario`, { method: 'PUT' })
-      .then(res => {
-        if (res.ok) {
-          Swal.fire("Que ótimo!", "A rede de apoio foi avisada que o paciente está bem hoje.", "success")
-          carregarDados()
-        }
-      })
+      .catch(() => setPaciente(null))
   }
 
   const handleTrocarCuidador = () => {
     const opcoesSelect = {}
-    listaCuidadores.forEach(cuid => {
-      opcoesSelect[cuid] = cuid
-    })
+    listaCuidadores.forEach(cuid => { opcoesSelect[cuid] = cuid })
 
     Swal.fire({
       title: 'Troca de Turno',
-      text: 'Selecione quem está assumindo o plantão:',
+      text: 'Selecione o profissional que está assumindo o plantão:',
       input: 'select',
       inputOptions: opcoesSelect,
       inputPlaceholder: 'Selecione...',
@@ -153,58 +170,23 @@ function App() {
     })
   }
 
-  const cadastrarCuidadorDireto = (e) => {
-    e.preventDefault()
-    const n = novoCuidadorNome.trim()
-    if (!n) return
-    if (listaCuidadores.includes(n)) {
-      Swal.fire("Aviso", "Este profissional já está cadastrado.", "warning")
-      return
-    }
-    const nLista = [...listaCuidadores, n]
-    setListaCuidadores(nLista)
-    localStorage.setItem('list_cuid', JSON.stringify(nLista))
-    setNovoCuidadorNome('')
-    setAddCuidadorModo(false)
-    Swal.fire("Sucesso!", "Novo enfermeiro/cuidador adicionado.", "success")
-  }
-
-  const deletarCuidador = (nomeParaDeletar) => {
-    if (nomeParaDeletar === nomeCuidador) {
-      return Swal.fire("Ação Bloqueada", "Este profissional está ativo no monitoramento agora.", "warning")
-    }
-    Swal.fire({
-      title: `Remover ${nomeParaDeletar}?`,
-      text: "O perfil sairá definitivamente da lista do sistema.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#E53935',
-      cancelButtonText: 'Cancelar',
-      confirmButtonText: 'Sim, remover!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const nLista = listaCuidadores.filter(c => c !== nomeParaDeletar)
-        setListaCuidadores(nLista)
-        localStorage.setItem('list_cuid', JSON.stringify(nLista))
-        Swal.fire("Excluído!", "Perfil removido com sucesso.", "success")
-      }
-    })
-  }
-
-  const deletarPaciente = (id) => {
+  const resetarAplicativo = (id) => {
     if (!id) return
     Swal.fire({
-      title: 'Remover o cadastro?',
-      text: "Todos os dados associados serão perdidos.",
+      title: 'Remover registro?',
+      text: "Todos os dados salvos deste paciente serão apagados permanentemente.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#E53935',
+      confirmButtonText: 'Sim, excluir'
     }).then((result) => {
       if (result.isConfirmed) {
         fetch(`http://localhost:8080/api/pacientes/${id}`, { method: 'DELETE' })
           .then(() => {
-            Swal.fire("Removido!", "Cadastro excluído.", "success")
-            carregarDados()
+            setPaciente(null)
+            setNome(''); setIdade(''); setParentesco(''); setPeso(''); setTipoSanguineo(''); setTemHipertensao(false); setDoencasCronicas(''); setAlergias(''); setRelatorioPlantao('')
+            setTela('home')
+            Swal.fire("Excluído", "O prontuário foi removido do sistema.", "success")
           })
       }
     })
@@ -212,75 +194,119 @@ function App() {
 
   const cadastrarPacienteGeral = (e) => {
     e.preventDefault()
+
+    let idForm = idade.trim()
+    if (idForm && !isNaN(idForm)) {
+      idForm = `${idForm} anos`
+    }
+
+    let pesoForm = peso.trim()
+    if (pesoForm && !isNaN(pesoForm.replace(',', '.'))) {
+      pesoForm = `${pesoForm} kg`
+    }
+
     const novo = {
+      id: paciente?.id || paciente?._id || null,
       nome: nome.trim(),
-      parentesco: parentesco.trim(),
-      statusReceita: "Vencendo",
-      statusConfirmacaoDiaria: "Pendente",
-      medicacoes: remedio ? [{ nome: remedio.trim(), dosagem: dosagem.trim(), horario: horario.trim() }] : []
+      vinculo: parentesco.trim(),
+      idade: idForm,
+      peso: pesoForm,
+      tipoSanguineo: tipoSanguineo,
+      temHipertensao: temHipertensao === true || temHipertensao === 'true',
+      doencasCronicas: doencasCronicas.trim(),
+      alergias: alergias.trim(),
+      relatorioPlantao: relatorioPlantao.trim(),
+      statusReceita: paciente?.statusReceita || "Vencendo",
+      statusConfirmacaoDiaria: paciente?.statusConfirmacaoDiaria || "Pendente",
+      medicacoes: paciente?.medicacoes ? paciente.medicacoes : (remedio ? [{ nome: remedio.trim(), dosagem: dosagem.trim(), horario: horario.trim() }] : [])
     }
 
     fetch('http://localhost:8080/api/pacientes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(novo)
-    }).then(() => {
-      setNome(''); setParentesco(''); setRemedio(''); setDosagem(''); setHorario('')
-      setTela('home')
-      carregarDados()
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Erro na resposta')
+      return res.json()
+    })
+    .then((dadosSalvos) => {
+      setPaciente(dadosSalvos) 
+      setRemedio(''); setDosagem(''); setHorario('')
+      setAbaPaciente('visualizar_perfil') 
+      setTela('visualizar_historico')
+      Swal.fire("Pronto!", "Os dados foram atualizados com sucesso.", "success")
+    })
+    .catch(() => {
+      Swal.fire("Erro", "Não foi possível processar a requisição no servidor.", "error")
+    })
+  }
+
+  
+  const salvarNotaPlantao = (e) => {
+    e.preventDefault()
+    if (!novaOcorrencia.trim() || !paciente) return
+
+    const id = paciente.id || paciente._id
+    
+    
+    const relatorioAtualizado = relatorioPlantao 
+      ? `${relatorioPlantao}\n• ${novaOcorrencia.trim()}` 
+      : `• ${novaOcorrencia.trim()}`
+
+    const payload = {
+      ...paciente,
+      relatorioPlantao: relatorioAtualizado
+    }
+
+    fetch('http://localhost:8080/api/pacientes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error()
+      return res.json()
+    })
+    .then((dadosSalvos) => {
+      setPaciente(dadosSalvos)
+      setRelatorioPlantao(dadosSalvos.relatorioPlantao || '')
+      setNovaOcorrencia('') // Limpa o textarea após salvar
+      Swal.fire("Registrado!", "A ocorrência foi adicionada ao livro de plantão.", "success")
+    })
+    .catch(() => {
+      Swal.fire("Erro", "Não foi possível salvar o relato.", "error")
     })
   }
 
   const adicionarRemedioAba = (e) => {
     e.preventDefault()
-    
-    fetch('http://localhost:8080/api/pacientes')
-      .then(res => res.json())
-      .then(listaPacientes => {
-        const dadosPacientes = Array.isArray(listaPacientes) ? listaPacientes : [listaPacientes];
-        
-        if (!dadosPacientes || dadosPacientes.length === 0 || !dadosPacientes[0]) {
-          Swal.fire("Erro", "Nenhum paciente cadastrado. Vá em 'Pacientes' e crie um cadastro primeiro.", "error")
-          return;
-        }
+    if (!paciente) return
 
-        const p = dadosPacientes[0];
-        const id = p.id || p._id;
+    const id = paciente.id || paciente._id
+    const med = { 
+      nome: novoRemedioNome.trim(), 
+      dosagem: novoRemedioDose.trim(), 
+      horario: novoRemedioHora.trim() 
+    }
 
-        if (!id) {
-          Swal.fire("Erro", "Paciente sem identificador válido no MongoDB.", "error")
-          return;
-        }
-
-        const med = { 
-          nome: novoRemedioNome.trim(), 
-          dosagem: novoRemedioDose.trim(), 
-          horario: novoRemedioHora.trim() 
-        }
-
-        fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(med)
-        }).then(res => {
-          if (res.ok) {
-            setNovoRemedioNome(''); 
-            setNovoRemedioDose(''); 
-            setNovoRemedioHora('');
-            setAddModo(false);
-            carregarDados();
-            Swal.fire("Sucesso!", "Medicamento agendado com sucesso.", "success");
-          }
-        });
-      })
-      .catch(() => {
-        Swal.fire("Erro", "Falha na comunicação com o servidor.", "error")
-      })
+    fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(med)
+    }).then(res => {
+      if (res.ok) {
+        setNovoRemedioNome(''); setNovoRemedioDose(''); setNovoRemedioHora('');
+        setAddModo(false);
+        carregarDados();
+        Swal.fire("Sucesso", "Medicamento adicionado à grade horária.", "success");
+      }
+    });
   }
 
   const removerRemedioAba = (idx) => {
-    if (!pacientes || pacientes.length === 0) return
-    const id = pacientes[0].id || pacientes[0]._id
+    if (!paciente) return
+    const id = paciente.id || paciente._id
     fetch(`http://localhost:8080/api/pacientes/${id}/medicacoes/${idx}`, { method: 'DELETE' })
       .then(() => carregarDados())
   }
@@ -299,12 +325,6 @@ function App() {
     setPressaoSis(''); setPressaoDia('')
   }
 
-  const renderNomePacienteHome = () => {
-    if (!pacientes || pacientes.length === 0 || !pacientes[0]) return 'Nenhum paciente'
-    const p = pacientes[0]
-    return p.nome
-  }
-
   return (
     <div className="flex-centro-container">
       <div className="celular">
@@ -312,13 +332,13 @@ function App() {
         {alarmeAtivo && (
           <div style={modalAlarmeEstilo}>
             <div style={{ fontSize: '70px' }}>🔔</div>
-            <h2>HORA DO REMÉDIO!</h2>
+            <h2>Alerta de medicação</h2>
             <p style={{ textAlign: 'center' }}>
-              O paciente precisa tomar:<br/>
+              Horário do medicamento:<br/>
               <strong style={{ display: 'inline-block', marginTop: '10px', background: '#fff', color: '#E53935', padding: '5px 15px', borderRadius: '10px' }}>{remedioAlarme}</strong>
             </p>
             <button onClick={() => setAlarmeAtivo(false)} style={{ background: '#fff', color: '#E53935', border: 'none', padding: '15px 40px', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer' }}>
-              Confirmar Ingestão
+              Confirmar
             </button>
           </div>
         )}
@@ -328,107 +348,297 @@ function App() {
             <div className="home-header">
               <div className="logo-texto">❤️ START+HELP</div>
               <div className="header-botoes-grupo">
-                <button onClick={() => setTela('sos')} className="btn-sos-header">🚨 BOTÃO SOS</button>
-                <button onClick={handleTrocarCuidador} className="seletor-cuidador">👤 Alternar Turno</button>
+                <button onClick={handleTrocarCuidador} className="seletor-cuidador">👤 Turno</button>
               </div>
             </div>
 
-            {pacientes?.[0]?.alertaUBS && (
-              <div style={{ background: '#fffae6', border: '2px solid #ffcc00', borderRadius: '15px', padding: '12px', color: '#8a6d3b', fontWeight: 'bold', textAlign: 'left', fontSize: '14px' }}>
-                ⚠️ <b>AVISO DO POSTINHO DE SAÚDE:</b><br/>
-                <span style={{ fontWeight: '500', display: 'block', marginTop: '4px' }}>{pacientes[0].alertaUBS}</span>
-              </div>
-            )}
-
-            <div className="saudacao-bloco">
+            <div 
+              className="saudacao-bloco" 
+              style={{ textAlign: 'left', cursor: 'pointer' }}
+              onClick={() => {
+                if (paciente) {
+                  setAbaPaciente('visualizar_perfil'); 
+                  setTela('visualizar_historico');
+                } else {
+                  setTela('tela_paciente_unificado'); 
+                }
+              }}
+            >
               <p>Monitor local ativo: <b>{nomeCuidador}</b></p>
-              <h2>Olá! Paciente: <span className="destaque-vermelho" style={{ textTransform: 'capitalize' }}>{renderNomePacienteHome()}</span></h2>
-            </div>
-
-            {pacientes?.[0] && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {pacientes[0].statusReceita === 'Vencendo' ? (
-                  <div style={{ background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '15px', padding: '15px', textAlign: 'left' }}>
-                    <div style={{ fontWeight: 'bold', color: '#0d47a1', fontSize: '14px' }}>📄 Receita do Postinho vencendo em 15 dias!</div>
-                    <p style={{ fontSize: '12px', color: '#1565c0', margin: '4px 0 10px 0' }}>Deseja solicitar a renovação automática sem pegar fila?</p>
-                    <button onClick={() => handleRenovarReceita(pacientes[0].id || pacientes[0]._id)} style={{ background: '#1976d2', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>Solicitar Renovação</button>
-                  </div>
-                ) : pacientes[0].statusReceita === 'Aguardando Assinatura' ? (
-                  <div style={{ background: '#fff3e0', border: '1px solid #ffb74d', borderRadius: '15px', padding: '12px', textAlign: 'left', fontSize: '13px', color: '#e65100', fontWeight: 'bold' }}>
-                    ⏳ Aguardando assinatura do médico da UBS. Não vá ao posto ainda!
-                  </div>
-                ) : null}
-
-                {pacientes[0].statusConfirmacaoDiaria === 'Pendente' ? (
-                  <button onClick={() => handleConfirmarDiario(pacientes[0].id || pacientes[0]._id)} style={{ background: '#2E7D32', color: '#fff', border: 'none', width: '100%', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}>
-                    🌅 BOM DIA! Clique aqui para avisar que está tudo bem
-                  </button>
-                ) : (
-                  <div style={{ background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: '15px', padding: '12px', textAlign: 'center', color: '#1b5e20', fontWeight: 'bold', fontSize: '13px' }}>
-                    ✓ Status do dia confirmado. Monitoramento tranquilo!
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <div className="card-grade">
-              <div className="card-figma" onClick={() => { setTela('meus_pacientes'); setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }}>
-                <div className="icone-card bg-vermelho-claro">👥</div>
-                <div className="texto-card-bold">Pacientes</div>
-                <div style={cardTextoEstilo}>Gerenciar pessoas assistidas.</div>
-              </div>
-
-              <div className="card-figma" onClick={() => setTela('diario_saude')}>
-                <div className="icone-card bg-cinza-claro">💊</div>
-                <div className="texto-card-bold">Diário de Saúde</div>
-                <div style={cardTextoEstilo}>Remédios e Pressão.</div>
-              </div>
-
-              <div className="card-figma" onClick={() => setTela('guia_saude')}>
-                <div className="icone-card bg-verde-claro">📋</div>
-                <div className="texto-card-bold">Guia de Saúde</div>
-                <div style={cardTextoEstilo}>Orientações e cuidados.</div>
-              </div>
-            </div>
-
-            {/* TÍTULO CENTRALIZADO */}
-            <div className="alerta-header" style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-              <span className="alerta-titulo" style={{ textAlign: 'center' }}>🔔 Próximos Remédios Agendados</span>
+              <h2 style={{ fontSize: '22px', margin: '5px 0' }}>
+                Paciente: <span className="destaque-vermelho" style={{ textTransform: 'capitalize' }}>{paciente?.nome ? paciente.nome : 'Não cadastrado (Clique para iniciar)'}</span>
+              </h2>
+              {paciente && (
+                <div style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                  <span><b>Idade:</b> {paciente.idade ? (String(paciente.idade).includes('anos') ? paciente.idade : `${paciente.idade} anos`) : 'Não informada'}</span>
+                  <span style={{ margin: '0 8px' }}>|</span>
+                  <span><b>Vínculo:</b> {paciente.vinculo || 'Nenhum'}</span>
+                </div>
+              )}
             </div>
             
-            {/* GRID DE CARDS CENTRALIZADO */}
-            <div className="grid-lembretes-ajuste" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '10px', justifyContent: 'center', justifyContentItems: 'center' }}>
-              {pacientes?.[0]?.medicacoes?.map((m, idx) => (
-                <div key={idx} className="card-paciente" onClick={() => { setRemedioAlarme(m.nome); setAlarmeAtivo(true); }} style={{ cursor: 'pointer', width: '100%', maxWidth: '340px' }}>
+           <div className="card-grade" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginTop: '15px' }}>
+  
+  {/* Card 1 */}
+  <div className="card-figma" onClick={() => { setAbaPaciente('visualizar_perfil'); setTela('visualizar_historico'); }}>
+    <div className="icone-card bg-vermelho-claro">👥</div>
+    <div className="texto-card-bold">Prontuário Médico</div>
+  </div>
+
+  {/* Card 2 */}
+  <div className="card-figma" onClick={() => setTela('diario_saude')}>
+    <div className="icone-card bg-cinza-claro">💊</div>
+    <div className="texto-card-bold">Diário de Saúde</div>
+  </div>
+
+  {/* Card 3 */}
+  <div className="card-figma" onClick={() => setTela('guia_saude')}>
+    <div className="icone-card bg-verde-claro">📋</div>
+    <div className="texto-card-bold">Guia de Saúde</div>
+  </div>
+
+  {/* Card 4 - PROFISSIONAIS (O que você quer) */}
+  <div className="card-figma" onClick={() => setTela('cadastro_profissional')}>
+    <div className="icone-card bg-azul-claro">👨‍⚕️</div>
+    <div className="texto-card-bold">Profissionais</div>
+  </div>
+
+</div>
+
+             
+
+        
+        {tela === 'cadastro_profissional' && (
+          <div className="tela-scroll" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', color: '#2E7D32' }}>👨‍⚕️ Cadastrar Profissional</h2>
+              <button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button>
+            </div>
+            
+            <input 
+              placeholder="Nome do profissional" 
+              value={novoEnfNome} 
+              onChange={e => setNovoEnfNome(e.target.value)} 
+              className="caixa-texto" 
+              style={{ marginBottom: '10px', display: 'block', width: '100%' }} 
+            />
+            <input 
+              placeholder="Telefone" 
+              value={novoEnfTel} 
+              onChange={e => setNovoEnfTel(e.target.value)} 
+              className="caixa-texto" 
+              style={{ marginBottom: '10px', display: 'block', width: '100%' }} 
+            />
+            <button 
+              className="btn-verde" 
+              onClick={() => { 
+                setEnfermeiros([...enfermeiros, { nome: novoEnfNome, tel: novoEnfTel }]); 
+                setTela('home'); 
+              }}
+              style={{ width: '100%', padding: '12px' }}
+            >
+              Salvar Profissional
+            </button>
+
+            <div style={{ marginTop: '20px' }}>
+              <h3>Profissionais Cadastrados:</h3>
+              {enfermeiros.map((enf, index) => (
+                <div key={index} style={{ background: '#f0f0f0', padding: '10px', borderRadius: '8px', marginBottom: '5px' }}>
+                  <b>{enf.nome}</b> - Tel: {enf.tel}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+            <div className="alerta-header" style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '15px' }}>
+              <span className="alerta-titulo">🔔 Próximas Medicações Agendadas</span>
+            </div>
+            
+            <div className="grid-lembretes-ajuste" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginTop: '10px' }}>
+              {paciente?.medicacoes?.map((m, idx) => (
+                <div key={idx} className="card-paciente" onClick={() => { setRemedioAlarme(m.nome); setAlarmeAtivo(true); }} style={{ cursor: 'pointer' }}>
                   <div className="paciente-info-bloco">
                     <div className="avatar-idoso">💊</div>
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontWeight: '700', fontSize: '14px' }}>{m.nome}</div>
-                      <div style={{ fontSize: '12px', color: '#666' }}>{m.dosagem}</div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>Dosagem: {m.dosagem}</div>
                     </div>
                   </div>
-                  {/* TRATAMENTO AUTOMÁTICO BLINDADO NA HOME */}
-                  <div className="remedio-tag" style={{ minWidth: '140px', textAlign: 'center' }}>
-                    {(() => {
-                      const texto = m.horario.trim();
-                      if (texto.toLowerCase().startsWith('de ') || texto.includes('/')) {
-                        return texto;
-                      }
-                      const apenasNumero = texto.replace(/\D/g, '');
-                      if (!apenasNumero) return texto;
-                      return `de ${apenasNumero} em ${apenasNumero} horas`;
-                    })()}
-                  </div>
+                  <div className="remedio-tag">{`Horário: ${m.horario}`}</div>
                 </div>
               ))}
-              {(!pacientes?.[0]?.medicacoes || pacientes[0].medicacoes.length === 0) && (
-                <div style={{ color: '#94a3b8', padding: '10px', textAlign: 'center', gridColumn: '1/-1' }}>Nenhum remédio agendado.</div>
+              {(!paciente?.medicacoes || paciente.medicacoes.length === 0) && (
+                <div style={{ color: '#94a3b8', padding: '10px', textAlign: 'center' }}>Nenhum registro encontrado.</div>
               )}
             </div>
           </div>
         )}
 
-        {/* DIÁRIO DE SAÚDE */}
+        {tela === 'visualizar_historico' && (
+          <div className="tela-scroll" style={{ textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', color: '#E53935' }}>🧬 Prontuário Médico</h2>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                
+                {paciente && abaPaciente === 'visualizar_perfil' && (
+                  <button 
+                    className="btn-verde" 
+                    style={{ padding: '8px 16px', background: '#2E7D32', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} 
+                    onClick={() => setTela('tela_paciente_unificado')} 
+                  >
+                    📝 Editar
+                  </button>
+                )}
+                <button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button>
+              </div>
+            </div>
+
+            {paciente ? (
+              <>
+                <div style={{ display: 'flex', background: '#eee', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
+                  <button onClick={() => setAbaPaciente('visualizar_perfil')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaPaciente === 'visualizar_perfil' ? '#fff' : 'transparent', fontWeight: 'bold', cursor: 'pointer' }}>📝 Perfil</button>
+                  <button onClick={() => setAbaPaciente('relatorio_plantao')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaPaciente === 'relatorio_plantao' ? '#fff' : 'transparent', fontWeight: 'bold', cursor: 'pointer' }}>📋 Livro de Plantão</button>
+                </div>
+
+                {abaPaciente === 'relatorio_plantao' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    
+                    
+                    <form onSubmit={salvarNotaPlantao} style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                      <h3 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#1e293b' }}>📝 Registrar Nova Ocorrência</h3>
+                      <textarea 
+                        className="caixa-texto" 
+                        rows="3" 
+                        placeholder="Digite aqui o que aconteceu no turno (ex: Dormiu bem, tomou os remédios da tarde, etc.)..."
+                        value={novaOcorrencia}
+                        onChange={(e) => setNovaOcorrencia(e.target.value)}
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'none', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                        required
+                      />
+                      <button type="submit" className="btn-verde" style={{ marginTop: '10px', width: '100%', padding: '10px', fontSize: '13px' }}>
+                        Adicionar ao Livro
+                      </button>
+                    </form>
+
+                    
+                    <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                      <h3 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#1e293b', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>Livro de Ocorrências do Turno</h3>
+                      <div style={{ background: '#f0f9ff', padding: '12px', borderRadius: '8px', fontSize: '13px', color: '#0369a1', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                        {relatorioPlantao || 'Sem registros no relatório de observações recentes.'}
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '15px' }}>
+                      <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#1e293b', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>Identificação</h3>
+                      <p style={{ margin: '4px 0', fontSize: '14px' }}><b>Nome do Paciente:</b> {paciente.nome}</p>
+                      <p style={{ margin: '4px 0', fontSize: '14px' }}><b>Idade:</b> {paciente.idade || 'Não informada'}</p>
+                      <p style={{ margin: '4px 0', fontSize: '14px' }}><b>Vínculo ou Grau de Dependência:</b> {paciente.vinculo || 'Não informado'}</p>
+                    </div>
+
+                    <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '15px' }}>
+                      <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#1e293b', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>Informações de Saúde</h3>
+                      <p style={{ margin: '4px 0', fontSize: '14px' }}><b>Peso Corporal:</b> {paciente.peso || 'Não informado'}</p>
+                      <p style={{ margin: '4px 0', fontSize: '14px' }}><b>Tipo Sanguíneo:</b> {paciente.tipoSanguineo || 'Não informado'}</p>
+                      <p style={{ margin: '4px 0', fontSize: '14px' }}><b>Histórico de Hipertensão:</b> {paciente.temHipertensao ? '⚠️ Sim (Diagnosticado)' : 'Não possui restrições'}</p>
+                      
+                      <p style={{ margin: '12px 0 4px 0', fontSize: '14px', fontWeight: 'bold' }}>Possui alguma doença ou condição de saúde?</p>
+                      <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', fontSize: '13px', color: '#334155', borderLeft: '3px solid #cbd5e1' }}>
+                        {paciente.doencasCronicas || 'Nenhuma registrada.'}
+                      </div>
+
+                      <p style={{ margin: '12px 0 4px 0', fontSize: '14px', fontWeight: 'bold' }}>Restrições / Alergias:</p>
+                      <div style={{ background: '#fef2f2', padding: '10px', borderRadius: '6px', fontSize: '13px', color: '#991b1b', borderLeft: '3px solid #f87171', fontWeight: '500' }}>
+                        {paciente.alergias || 'Nenhuma restrição alimentar ou medicamentosa cadastrada.'}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '50px 20px', background: '#fff', borderRadius: '15px', border: '1px dashed #ccc', marginTop: '20px' }}>
+                <div style={{ fontSize: '50px', marginBottom: '15px' }}>📋</div>
+                <h3 style={{ color: '#64748b', fontWeight: '600', margin: '0 0 20px 0', fontSize: '16px' }}>
+                  Ainda não há dados clínicos para mostrar
+                </h3>
+                <button 
+                  onClick={() => setTela('tela_paciente_unificado')}
+                  style={{ background: '#2E7D32', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}
+                >
+                  📝 Cadastrar Novo Paciente
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tela === 'tela_paciente_unificado' && (
+          <div className="tela-scroll">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', color: '#E53935' }}>Ficha Cadastral</h2>
+              <button className="btn-cinza" onClick={() => { setAbaPaciente('visualizar_perfil'); setTela(paciente ? 'visualizar_historico' : 'home'); }}>Voltar</button>
+            </div>
+
+            <div style={{ textAlign: 'left' }}>
+              <form onSubmit={cadastrarPacienteGeral} className="form-cadastro">
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Nome:</label>
+                <input type="text" placeholder="Nome do paciente" value={nome} className="caixa-texto" onChange={e => setNome(e.target.value)} required />
+                
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Idade:</label>
+                <input type="text" placeholder="Ex: 60" value={idade} className="caixa-texto" onChange={e => setIdade(e.target.value)} />
+                
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Vínculo ou Grau de Dependência:</label>
+                <input type="text" placeholder="Ex: Idoso dependente, acamado, etc." value={parentesco} className="caixa-texto" onChange={e => setParentesco(e.target.value)} required />
+                
+                <div style={{ marginTop: '20px', marginBottom: '10px', fontWeight: 'bold', color: '#334155', fontSize: '14px' }}>
+                  🩺 Informações de Saúde
+                </div>
+
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Peso Corporal:</label>
+                <input type="text" placeholder="Ex: 81" value={peso} className="caixa-texto" onChange={e => setPeso(e.target.value)} />
+
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Tipo Sanguíneo:</label>
+                <select value={tipoSanguineo} className="caixa-texto" onChange={e => setTipoSanguineo(e.target.value)} style={{ backgroundColor: '#fff' }}>
+                  <option value="">Selecione...</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
+
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Histórico de Hipertensão:</label>
+                <select value={temHipertensao} className="caixa-texto" onChange={e => setTemHipertensao(e.target.value === 'true')} style={{ backgroundColor: '#fff' }}>
+                  <option value="false">Não</option>
+                  <option value="true">Sim</option>
+                </select>
+
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Possui alguma doença ou condição de saúde?</label>
+                <input type="text" placeholder="Ex: Diabetes, labirintite, nenhuma, etc." value={doencasCronicas} className="caixa-texto" onChange={e => setDoencasCronicas(e.target.value)} />
+                
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Restrições / Alergias:</label>
+                <input type="text" placeholder="Medicamentos, alimentos, etc." value={alergias} className="caixa-texto" onChange={e => setAlergias(e.target.value)} />
+
+                <button type="submit" className="btn-verde" style={{ marginTop: '15px', width: '100%' }}>
+                  Salvar Registro
+                </button>
+              </form>
+
+              {paciente && (
+                <button onClick={() => resetarAplicativo(paciente.id || paciente._id)} style={{ background: '#fef2f2', color: '#E53935', border: '1px solid #fca5a5', width: '100%', padding: '12px', borderRadius: '10px', fontWeight: 'bold', marginTop: '20px', cursor: 'pointer' }}>
+                  🗑️ Excluir Prontuário do Sistema
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {tela === 'diario_saude' && (
           <div className="tela-scroll">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -436,7 +646,7 @@ function App() {
               <button className="btn-cinza" onClick={() => { setTela('home'); setAddModo(false); }}>Voltar</button>
             </div>
 
-            <div style={{ display: 'flex', background: '#eee', borderRadius: '10px', padding: '4px' }}>
+            <div style={{ display: 'flex', background: '#eee', borderRadius: '10px', padding: '4px', marginBottom: '15px' }}>
               <button onClick={() => setAbaAtiva('remedios')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaAtiva === 'remedios' ? '#fff' : 'transparent', fontWeight: 'bold' }}>💊 Remédios</button>
               <button onClick={() => setAbaAtiva('pressao')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaAtiva === 'pressao' ? '#fff' : 'transparent', fontWeight: 'bold' }}>📊 Pressão</button>
             </div>
@@ -444,24 +654,11 @@ function App() {
             {abaAtiva === 'remedios' && (
               <div>
                 <div className="lista-lembretes">
-                  {pacientes?.[0]?.medicacoes?.map((m, idx) => (
+                  {paciente?.medicacoes?.map((m, idx) => (
                     <div key={idx} className="card-paciente" style={{ borderLeft: '5px solid #E53935' }}>
                       <div style={{ textAlign: 'left' }}>
                         <div style={{ fontWeight: 'bold' }}>{m.nome}</div>
-                        {/* TRATAMENTO AUTOMÁTICO BLINDADO NO DIÁRIO */}
-                        <div style={{ fontSize: '12px', color: '#777' }}>
-                          {m.dosagem} - <span style={{ color: '#E53935', fontWeight: 'bold' }}>
-                            {(() => {
-                              const texto = m.horario.trim();
-                              if (texto.toLowerCase().startsWith('de ') || texto.includes('/')) {
-                                return texto;
-                              }
-                              const apenasNumero = texto.replace(/\D/g, '');
-                              if (!apenasNumero) return texto;
-                              return `de ${apenasNumero} em ${apenasNumero} horas`;
-                            })()}
-                          </span>
-                        </div>
+                        <div style={{ fontSize: '12px', color: '#777' }}>{m.dosagem} - <span style={{ color: '#E53935', fontWeight: 'bold' }}>{m.horario}</span></div>
                       </div>
                       <button onClick={() => removerRemedioAba(idx)} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
                     </div>
@@ -469,14 +666,14 @@ function App() {
                 </div>
 
                 {!addModo ? (
-                  <button onClick={() => setAddModo(true)} style={{ background: '#E53935', color: '#fff', border: 'none', width: '100%', padding: '12px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>+ Adicionar Remédio</button>
+                  <button onClick={() => setAddModo(true)} style={{ background: '#E53935', color: '#fff', border: 'none', width: '100%', padding: '12px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>+ Novo Medicamento</button>
                 ) : (
                   <form onSubmit={adicionarRemedioAba} className="form-cadastro" style={{ background: '#F5F5F5', padding: '15px', borderRadius: '12px', marginTop: '15px' }}>
-                    <input type="text" placeholder="Nome do remédio" value={novoRemedioNome} onChange={e => setNovoRemedioNome(e.target.value)} className="caixa-texto" required />
+                    <input type="text" placeholder="Nome do medicamento" value={novoRemedioNome} onChange={e => setNovoRemedioNome(e.target.value)} className="caixa-texto" required />
                     <input type="text" placeholder="Dosagem" value={novoRemedioDose} onChange={e => setNovoRemedioDose(e.target.value)} className="caixa-texto" required />
-                    <input type="text" placeholder="Horário (Ex: 8 ou 12)" value={novoRemedioHora} onChange={e => setNovoRemedioHora(e.target.value)} className="caixa-texto" required />
+                    <input type="text" placeholder="Frequência / Horário" value={novoRemedioHora} onChange={e => setNovoRemedioHora(e.target.value)} className="caixa-texto" required />
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="submit" className="btn-verde" style={{ flex: 1 }}>Salvar</button>
+                      <button type="submit" className="btn-verde" style={{ flex: 1 }}>Adicionar</button>
                       <button type="button" onClick={() => setAddModo(false)} className="btn-cinza" style={{ flex: 1 }}>Cancelar</button>
                     </div>
                   </form>
@@ -488,10 +685,10 @@ function App() {
               <div>
                 <form onSubmit={cadastrarPressao} style={{ background: '#F5F5F5', padding: '15px', borderRadius: '15px', marginBottom: '20px', textAlign: 'left' }}>
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                    <input type="number" placeholder="Sis (Ex: 12)" value={pressaoSis} onChange={e => setPressaoSis(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} required />
-                    <input type="number" placeholder="Dia (Ex: 8)" value={pressaoDia} onChange={e => setPressaoDia(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} required />
+                    <input type="number" placeholder="Sistólica (Ex: 12)" value={pressaoSis} onChange={e => setPressaoSis(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} required />
+                    <input type="number" placeholder="Diastólica (Ex: 8)" value={pressaoDia} onChange={e => setPressaoDia(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} required />
                   </div>
-                  <button type="submit" style={{ width: '100%', background: '#E53935', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar no Diário</button>
+                  <button type="submit" style={{ width: '100%', background: '#E53935', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Registrar Medição</button>
                 </form>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -501,144 +698,37 @@ function App() {
                         <span style={{ fontSize: '11px', color: '#999' }}>{h.data} - {h.hora}</span>
                         <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{h.sistolica} x {h.diastolica}</div>
                       </div>
-                      <button 
-                        onClick={() => {
-                          const novoHist = historicoPressao.filter((_, i) => i !== idx);
-                          setHistoricoPressao(novoHist);
-                          localStorage.setItem('hist_pressao', JSON.stringify(novoHist));
-                        }} 
-                        style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}
-                      >
-                        🗑️
-                      </button>
+                      <button onClick={() => {
+                        const novoHist = historicoPressao.filter((_, i) => i !== idx);
+                        setHistoricoPressao(novoHist);
+                        localStorage.setItem('hist_pressao', JSON.stringify(novoHist)); 
+                      }} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
                     </div>
                   ))}
-                  {historicoPressao.length === 0 && (
-                    <div style={{ color: '#94a3b8', padding: '10px', textAlign: 'center', fontSize: '14px' }}>Nenhuma medição registrada.</div>
-                  )}
                 </div>
               </div>
             )}
           </div>
         )}
 
-       {/* TELA SOS */}
-        {tela === 'sos' && (
-          <div className="tela-scroll">
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>❤️ START+HELP</b><button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button></div>
-            <div className="sos-container">
-              <button className="botao-sos-gigante" onClick={() => 
-                Swal.fire({
-                  title: '🚨 ALERTA SOS EMITIDO!',
-                  text: 'Os profissionais de plantão receberam os dados de emergência. O socorro está a caminho!',
-                  icon: 'warning',
-                  confirmButtonText: 'OK',
-                  confirmButtonColor: '#E53935'
-                })
-              }>
-                <div>SOS</div>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* TELA DO GUIA DE SAÚDE */}
         {tela === 'guia_saude' && (
           <div className="tela-scroll" style={{ textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h2 style={{ margin: 0, fontSize: '24px', color: '#2E7D32', fontWeight: 'bold' }}>📋 Guia de Saúde</h2>
-              <button className="btn-cinza" style={{ fontSize: '14px', padding: '8px 16px' }} onClick={() => setTela('home')}>Voltar</button>
+              <button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button>
             </div>
-            <p style={{ fontSize: '15px', color: '#555', marginTop: '-5px', marginBottom: '25px' }}>Orientações rápidas e cuidados fundamentais.</p>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {artigosGuia.map((artigo) => (
-                <div key={artigo.id} className="card-paciente" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '18px', gap: '8px', cursor: 'pointer' }} onClick={() => Swal.fire(artigo.titulo, artigo.descricao, "info")}>
+              {articlesGuia.map((artigo) => (
+                <div key={artigo.id} className="card-paciente" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '18px', gap: '8px' }} onClick={() => Swal.fire(artigo.titulo, article.descricao, "info")}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#2E7D32', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{artigo.categoria}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#2E7D32' }}>{artigo.categoria}</span>
                     <span style={{ fontSize: '26px' }}>{artigo.icone}</span>
                   </div>
-                  <h3 style={{ margin: 0, fontSize: '18px', color: '#111', fontWeight: '700' }}>{artigo.titulo}</h3>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#444', lineHeight: '1.5', fontWeight: '500' }}>{artigo.descricao}</p>
+                  <h3 style={{ margin: 0, fontSize: '18px' }}>{artigo.titulo}</h3>
+                  <p style={{ margin: 0, fontSize: '14px', color: '#444' }}>{artigo.descricao}</p>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* CADASTRO */}
-        {tela === 'cadastro' && (
-          <div className="tela-scroll">
-            <h2>Novo Cadastro</h2>
-            <form onSubmit={cadastrarPacienteGeral} className="form-cadastro">
-              <input type="text" placeholder="Nome do paciente" value={nome} className="caixa-texto" onChange={e => setNome(e.target.value)} required />
-              <input type="text" placeholder="Vínculo / Descrição" value={parentesco} className="caixa-texto" onChange={e => setParentesco(e.target.value)} required />
-              <input type="text" placeholder="Remédio (Opcional)" value={remedio} className="caixa-texto" onChange={e => setRemedio(e.target.value)} />
-              <input type="text" placeholder="Dosagem" value={dosagem} className="caixa-texto" onChange={e => setDosagem(e.target.value)} />
-              <input type="text" placeholder="Horário" value={horario} className="caixa-texto" onChange={e => setHorario(e.target.value)} />
-              <button type="submit" className="btn-verde">Salvar Cadastro</button>
-            </form>
-            <button className="btn-cinza" style={{ width: '100%', marginTop: '10px' }} onClick={() => setTela('home')}>Cancelar</button>
-          </div>
-        )}
-
-        {/* COMPONENTE DE GERENCIAMENTO DE PACIENTES E CUIDADORES */}
-        {tela === 'meus_pacientes' && (
-          <div className="tela-scroll">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#E53935' }}>Gerenciamento</h2>
-              <button className="btn-cinza" onClick={() => setTela('home')}>Voltar</button>
-            </div>
-
-            <div style={{ display: 'flex', background: '#eee', borderRadius: '10px', padding: '4px', marginBottom: '20px' }}>
-              <button onClick={() => { setAbaGerenciar('pacientes'); setAddCuidadorModo(false); }} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'pacientes' ? '#fff' : 'transparent', fontWeight: 'bold', cursor: 'pointer' }}>👥 Pacientes</button>
-              <button onClick={() => setAbaGerenciar('cuidadores')} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '8px', background: abaGerenciar === 'cuidadores' ? '#fff' : 'transparent', fontWeight: 'bold' }}>👤 Cuidadores / Enfermeiros</button>
-            </div>
-
-            {abaGerenciar === 'pacientes' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {pacientes.map((p, i) => (
-                  <div key={i} className="card-paciente">
-                    <div style={{ textAlign: 'left' }}>
-                      <b style={{ textTransform: 'capitalize', color: '#E53935' }}>Paciente</b>
-                      <div style={{ fontSize: '13px' }}>{p.nome}</div>
-                    </div>
-                    <button onClick={() => deletarPaciente(p.id || p._id)} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
-                  </div>
-                ))}
-                <button onClick={() => setTela('cadastro')} style={{ background: '#2E7D32', color: '#fff', border: 'none', width: '100%', padding: '12px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px', cursor: 'pointer' }}>+ Cadastrar Novo Paciente</button>
-              </div>
-            )}
-
-            {abaGerenciar === 'cuidadores' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {listaCuidadores.map((c, i) => (
-                  <div key={i} className="card-paciente">
-                    <div style={{ textAlign: 'left' }}>
-                      <b>{c}</b>
-                      <div style={{ fontSize: '11px', color: c === nomeCuidador ? '#2E7D32' : '#777' }}>
-                        {c === nomeCuidador ? '● Ativo no Monitoramento' : 'Disponível'}
-                      </div>
-                    </div>
-                    {c !== nomeCuidador && (
-                      <button onClick={() => deletarCuidador(c)} style={{ background: 'transparent', border: 'none', fontSize: '16px', cursor: 'pointer' }}>🗑️</button>
-                    )}
-                  </div>
-                ))}
-
-                {!addCuidadorModo ? (
-                  <button onClick={() => setAddCuidadorModo(true)} style={{ background: '#1976d2', color: '#fff', border: 'none', width: '100%', padding: '12px', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px', cursor: 'pointer' }}>+ Incluir Novo Enfermeiro/Cuidador</button>
-                ) : (
-                  <form onSubmit={cadastrarCuidadorDireto} style={{ background: '#F5F5F5', padding: '15px', borderRadius: '12px', marginTop: '15px', textAlign: 'left' }}>
-                    <input type="text" placeholder="Nome do profissional" value={novoCuidadorNome} onChange={e => setNovoCuidadorNome(e.target.value)} className="caixa-texto" required />
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                      <button type="submit" className="btn-verde" style={{ flex: 1 }}>Salvar</button>
-                      <button type="button" onClick={() => setAddModo(false)} className="btn-cinza" style={{ flex: 1 }}>Cancelar</button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )}
           </div>
         )}
 
